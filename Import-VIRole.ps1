@@ -29,7 +29,7 @@ function Import-VIRole
     Param(
         [Parameter(Mandatory = $true,Position = 0,HelpMessage = 'Name of the role')]
         [ValidateNotNullorEmpty()]
-        [ValidatePattern('^[A-Za-z ]+$')] #Alpha and space only
+        [ValidatePattern('^[\-\w ]+$')] #AlphaNumeric and -
         [String]$Name,
         [Parameter(Mandatory = $true,Position = 1,HelpMessage = 'Path to the JSON file describing the role')]
         [ValidateNotNullorEmpty()]
@@ -45,28 +45,25 @@ function Import-VIRole
     Process {
         Write-Verbose -Message 'Importing PowerCLI modules and snapins'
         $powercli = Get-PSSnapin -Name VMware.VimAutomation.Core -Registered
-        Try 
-        {
-            Switch ($powercli.Version.Major) {
-                { $_ -ge 6 }
-                {
-                    Import-Module -Name VMware.VimAutomation.Core -ErrorAction Stop
-                    Write-Verbose -Message 'PowerCLI 6+ module imported'
+        if ($powercli -eq $null) {
+            # Assume we're on a newer version of PowerCLI          
+            Import-Module  -Name VMware.VimAutomation.Core -ErrorAction Stop
+        } else { 
+            Try {
+                Switch ($powercli.Version.Major) {
+                    { $_ -ge 6 } {
+                        Import-Module -Name VMware.VimAutomation.Core -ErrorAction Stop
+                        Write-Verbose -Message 'PowerCLI 6+ module imported'
+                    }  5  {
+                        Add-PSSnapin -Name VMware.VimAutomation.Core -ErrorAction Stop
+                        Write-Warning -Message 'PowerCLI 5 snapin added; recommend upgrading your PowerCLI version'
+                    }  default  {
+                        Throw 'This script requires PowerCLI version 5 or later'
+                    }
                 }
-                5
-                {
-                    Add-PSSnapin -Name VMware.VimAutomation.Core -ErrorAction Stop
-                    Write-Warning -Message 'PowerCLI 5 snapin added; recommend upgrading your PowerCLI version'
-                }
-                default 
-                {
-                    Throw 'This script requires PowerCLI version 5 or later'
-                }
+            }  Catch  {
+                Throw $_
             }
-        }
-        Catch 
-        {
-            Throw $_
         }
 
         Write-Verbose -Message 'Allowing untrusted SSL certs'
